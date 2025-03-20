@@ -1,25 +1,19 @@
-from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey
+from sqlalchemy import Column, String, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
-
-from app.core.database import Base
+from uuid import uuid4
+from app.core.database import Base, paper_citations
 
 class Citation(Base):
+    """SQLAlchemy model for citations."""
     __tablename__ = "citations"
     __table_args__ = {'extend_existing': True}
 
-    id = Column(Integer, primary_key=True, index=True)
-    paper_id = Column(Integer, ForeignKey("papers.id"))
-    text = Column(String)
-    reference = Column(String)
-    context = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    id = Column(String, primary_key=True)
-    paper_id = Column(String, ForeignKey("papers.id"))
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    value = Column(String, nullable=False, unique=True)
     bibtex = Column(String)
     style = Column(String, default="ieee")  # ieee, apa, mla
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationship with Paper
-    paper = relationship("Paper", back_populates="citations") 
+    # Relationship with papers
+    papers = relationship("Paper", secondary=paper_citations, back_populates="citations") 

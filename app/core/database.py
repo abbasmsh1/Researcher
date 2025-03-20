@@ -63,26 +63,6 @@ paper_citations = Table(
     Column('citation_id', String, ForeignKey('citations.id'))
 )
 
-# Database models
-class DBPaper(Base):
-    """SQLAlchemy model for papers."""
-    __tablename__ = "papers"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    title = Column(String, nullable=False)
-    authors = Column(JSON, nullable=False)  # Store as JSON
-    abstract = Column(String, nullable=False)
-    content = Column(String, nullable=False)
-    doi = Column(String)
-    url = Column(String)
-    publication_date = Column(DateTime)
-    journal = Column(String)
-    
-    # Many-to-many relationships
-    keywords = relationship("Keyword", secondary=paper_keywords)
-    references = relationship("Reference", secondary=paper_references)
-    citations = relationship("Citation", secondary=paper_citations)
-
 class DBReview(Base):
     """SQLAlchemy model for reviews."""
     __tablename__ = "reviews"
@@ -96,25 +76,4 @@ class DBReview(Base):
     topic = Column(String, nullable=False)
     paper_ids = Column(JSON)  # Store as JSON array
     citation_style = Column(String, default="ieee")
-    word_count = Column(String)
-
-class Keyword(Base):
-    """SQLAlchemy model for keywords."""
-    __tablename__ = "keywords"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    value = Column(String, nullable=False, unique=True)
-
-class Reference(Base):
-    """SQLAlchemy model for references."""
-    __tablename__ = "references"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    value = Column(String, nullable=False, unique=True)
-
-class Citation(Base):
-    """SQLAlchemy model for citations."""
-    __tablename__ = "citations"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    value = Column(String, nullable=False, unique=True) 
+    word_count = Column(String) 
