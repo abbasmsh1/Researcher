@@ -1,5 +1,5 @@
 import React from 'react';
-import './App.css';
+import './css';
 import Upload from './components/Upload';
 import ReviewGeneration from './components/ReviewGeneration';
 import CitationDisplay from './components/CitationDisplay';

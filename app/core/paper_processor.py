@@ -7,8 +7,8 @@ import spacy
 from transformers import pipeline
 from sqlalchemy.orm import Session
 
-from app.models.paper import Paper, Author
-from app.core.database import DBPaper
+from models.paper import Paper, Author
+from core.database import DBPaper
 
 class PaperProcessor:
     def __init__(self):

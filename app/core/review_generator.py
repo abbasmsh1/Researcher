@@ -6,8 +6,8 @@ from langchain.prompts import PromptTemplate
 import os
 from dotenv import load_dotenv
 
-from app.models.review import Review, Section
-from app.core.database import DBReview, DBPaper
+from models.review import Review, Section
+from core.database import DBReview, DBPaper
 
 # Load environment variables
 load_dotenv()

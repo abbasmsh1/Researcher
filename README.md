@@ -40,7 +40,7 @@ cp .env.example .env
 
 1. Start the server:
 ```bash
-uvicorn app.main:app --reload
+uvicorn main:app --reload
 ```
 
 2. Access the web interface at `http://localhost:8000`

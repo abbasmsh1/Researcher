@@ -1,6 +1,6 @@
 from typing import List, Dict
 from sqlalchemy.orm import Session
-from app.core.database import DBPaper
+from core.database import DBPaper
 
 class CitationService:
     def __init__(self):

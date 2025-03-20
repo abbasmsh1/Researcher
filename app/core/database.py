@@ -1,27 +1,37 @@
-from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Table
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+import os
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
+from sqlalchemy import Column, String, DateTime, ForeignKey, Table
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.sqlite import JSON
 import uuid
 from datetime import datetime
 
-# Create SQLite engine
-SQLALCHEMY_DATABASE_URL = "sqlite:///./researcher.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+# Load environment variables
+load_dotenv()
 
-# Create declarative base
-Base = declarative_base()
+# Get database path from environment variable or use default
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./papers.db")
 
-# Create session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+try:
+    engine = create_async_engine(DATABASE_URL, echo=True)
+    AsyncSessionLocal = sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
+    Base = declarative_base()
+except Exception as e:
+    print(f"Error initializing database: {e}")
+    raise
 
-def get_db():
-    """Get database session."""
-    db = SessionLocal()
+async def get_db():
+    """Get database session with error handling"""
     try:
-        yield db
-    finally:
-        db.close()
+        async with AsyncSessionLocal() as session:
+            yield session
+    except Exception as e:
+        print(f"Error getting database session: {e}")
+        raise
 
 # Association tables for many-to-many relationships
 paper_keywords = Table(
