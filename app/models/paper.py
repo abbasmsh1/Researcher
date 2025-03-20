@@ -1,40 +1,23 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from sqlalchemy import Column, Integer, String, DateTime, JSON
+from sqlalchemy.orm import relationship
 from datetime import datetime
-from uuid import UUID, uuid4
 
-class Author(BaseModel):
-    name: str
-    affiliation: Optional[str] = None
-    email: Optional[str] = None
+from app.core.database import Base
 
-class Paper(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
-    title: str
-    authors: List[Author]
-    abstract: str
-    content: str
-    doi: Optional[str] = None
-    url: Optional[str] = None
-    publication_date: Optional[datetime] = None
-    journal: Optional[str] = None
-    keywords: List[str] = []
-    references: List[str] = []
-    citations: List[str] = []
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "title": "Deep Learning: A Comprehensive Survey",
-                "authors": [
-                    {
-                        "name": "Abbas Mustafa",
-                        "affiliation": "IMT Atlantique",
-                        "email": "abbasmsh1@gmail.com"
-                    }
-                ],
-                "abstract": "This paper provides a comprehensive survey of deep learning techniques...",
-                "doi": "10.1234/example.2024",
-                "keywords": ["deep learning", "artificial intelligence", "neural networks"]
-            }
-        } 
+class Paper(Base):
+    __tablename__ = "papers"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    authors = Column(JSON)  # Store as JSON array
+    abstract = Column(String)
+    keywords = Column(JSON)  # Store as JSON array
+    references = Column(JSON)  # Store as JSON array
+    citations = Column(JSON)  # Store as JSON array
+    file_path = Column(String)
+    processed_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    reviews = relationship("Review", back_populates="paper")
+    citations = relationship("Citation", back_populates="paper") 

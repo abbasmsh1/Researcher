@@ -1,13 +1,18 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from langchain.llms import Together
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 import os
 from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+import json
+from datetime import datetime
 
-from models.review import Review, Section
-from core.database import DBReview, DBPaper
+from app.models.paper import Paper
+from app.models.review import Review, Section
+from app.core.database import Base
 
 # Load environment variables
 load_dotenv()
@@ -15,8 +20,12 @@ load_dotenv()
 class ReviewGenerator:
     def __init__(self):
         """Initialize the review generator with Together AI LLM."""
+        self.together_api_key = os.getenv("TOGETHER_API_KEY")
+        if not self.together_api_key:
+            raise ValueError("TOGETHER_API_KEY environment variable is not set")
+        
         self.llm = Together(
-            together_api_key=os.getenv("TOGETHER_API_KEY"),
+            together_api_key=self.together_api_key,
             model="mistralai/Mixtral-8x7B-Instruct-v0.1"
         )
         
@@ -100,7 +109,7 @@ class ReviewGenerator:
     ) -> Review:
         """Generate a state-of-the-art review based on the provided papers."""
         # Fetch papers from database
-        papers = db.query(DBPaper).filter(DBPaper.id.in_(paper_ids)).all()
+        papers = db.query(Paper).filter(Paper.id.in_(paper_ids)).all()
         if not papers:
             raise ValueError("No papers found with the provided IDs")
         
@@ -137,7 +146,7 @@ class ReviewGenerator:
         abstract = await self._generate_abstract(topic, papers_info)
         
         # Create database record
-        db_review = DBReview(
+        db_review = Review(
             title=f"State-of-the-Art Review: {topic}",
             abstract=abstract,
             content=[section.dict() for section in sections],
@@ -188,4 +197,173 @@ class ReviewGenerator:
         )
         
         abstract_chain = LLMChain(llm=self.llm, prompt=abstract_prompt)
-        return await abstract_chain.arun(topic=topic, papers=papers_info) 
+        return await abstract_chain.arun(topic=topic, papers=papers_info)
+
+    async def generate_review(self, paper_id: str, db: AsyncSession) -> Dict[str, Any]:
+        """Generate a state-of-the-art review for the given paper"""
+        try:
+            # Get paper from database
+            paper = await self._get_paper(paper_id, db)
+            if not paper:
+                raise ValueError(f"Paper with ID {paper_id} not found")
+
+            # Generate review sections
+            sections = await self._generate_sections(paper)
+
+            # Create review record
+            review = Review(
+                paper_id=paper_id,
+                sections=json.dumps(sections),
+                generated_at=datetime.utcnow()
+            )
+
+            # Save to database
+            db.add(review)
+            await db.commit()
+            await db.refresh(review)
+
+            return {
+                "id": review.id,
+                "paper_id": paper_id,
+                "sections": sections,
+                "generated_at": review.generated_at.isoformat()
+            }
+
+        except Exception as e:
+            raise Exception(f"Error generating review: {str(e)}")
+
+    async def _get_paper(self, paper_id: str, db: AsyncSession) -> Paper:
+        """Get paper from database"""
+        query = select(Paper).where(Paper.id == paper_id)
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def _generate_sections(self, paper: Paper) -> List[Dict[str, Any]]:
+        """Generate review sections using Together AI"""
+        sections = []
+
+        # Generate introduction
+        intro = await self._generate_section(
+            "introduction",
+            paper.title,
+            paper.abstract,
+            paper.keywords
+        )
+        sections.append(intro)
+
+        # Generate methodology
+        methodology = await self._generate_section(
+            "methodology",
+            paper.title,
+            paper.abstract,
+            paper.keywords
+        )
+        sections.append(methodology)
+
+        # Generate results
+        results = await self._generate_section(
+            "results",
+            paper.title,
+            paper.abstract,
+            paper.keywords
+        )
+        sections.append(results)
+
+        # Generate discussion
+        discussion = await self._generate_section(
+            "discussion",
+            paper.title,
+            paper.abstract,
+            paper.keywords
+        )
+        sections.append(discussion)
+
+        return sections
+
+    async def _generate_section(
+        self,
+        section_type: str,
+        title: str,
+        abstract: str,
+        keywords: str
+    ) -> Dict[str, Any]:
+        """Generate a specific section using Together AI"""
+        # Prepare prompt based on section type
+        prompt = self._create_section_prompt(
+            section_type,
+            title,
+            abstract,
+            keywords
+        )
+
+        # Call Together AI API
+        response = await self._call_together_api(prompt)
+
+        # Parse and structure the response
+        return {
+            "type": section_type,
+            "content": response,
+            "subsections": []
+        }
+
+    def _create_section_prompt(
+        self,
+        section_type: str,
+        title: str,
+        abstract: str,
+        keywords: str
+    ) -> str:
+        """Create a prompt for the specified section"""
+        prompts = {
+            "introduction": f"""Write a comprehensive introduction for a research paper with the following details:
+Title: {title}
+Abstract: {abstract}
+Keywords: {keywords}
+
+The introduction should:
+1. Provide background information
+2. State the research problem
+3. Present the research objectives
+4. Outline the paper structure""",
+
+            "methodology": f"""Write a detailed methodology section for a research paper with the following details:
+Title: {title}
+Abstract: {abstract}
+Keywords: {keywords}
+
+The methodology should:
+1. Describe the research design
+2. Explain the data collection process
+3. Detail the analysis methods
+4. Address validity and reliability""",
+
+            "results": f"""Write a results section for a research paper with the following details:
+Title: {title}
+Abstract: {abstract}
+Keywords: {keywords}
+
+The results should:
+1. Present the findings clearly
+2. Include relevant statistics
+3. Use appropriate visualizations
+4. Address the research objectives""",
+
+            "discussion": f"""Write a discussion section for a research paper with the following details:
+Title: {title}
+Abstract: {abstract}
+Keywords: {keywords}
+
+The discussion should:
+1. Interpret the results
+2. Compare with existing literature
+3. Address limitations
+4. Suggest future research"""
+        }
+
+        return prompts.get(section_type, "")
+
+    async def _call_together_api(self, prompt: str) -> str:
+        """Call Together AI API to generate text"""
+        # TODO: Implement Together AI API call
+        # For now, return a placeholder response
+        return f"Generated {prompt[:50]}..." 

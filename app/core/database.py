@@ -14,12 +14,15 @@ load_dotenv()
 # Get database path from environment variable or use default
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./papers.db")
 
+# Create a single Base instance
+Base = declarative_base()
+
+# Create engine and session factory
 try:
     engine = create_async_engine(DATABASE_URL, echo=True)
     AsyncSessionLocal = sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
-    Base = declarative_base()
 except Exception as e:
     print(f"Error initializing database: {e}")
     raise
@@ -33,26 +36,31 @@ async def get_db():
         print(f"Error getting database session: {e}")
         raise
 
+async def init_db():
+    """Create tables if they don't exist"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
 # Association tables for many-to-many relationships
 paper_keywords = Table(
     'paper_keywords',
     Base.metadata,
     Column('paper_id', String, ForeignKey('papers.id')),
-    Column('keyword', String)
+    Column('keyword_id', String, ForeignKey('keywords.id'))
 )
 
 paper_references = Table(
     'paper_references',
     Base.metadata,
     Column('paper_id', String, ForeignKey('papers.id')),
-    Column('reference', String)
+    Column('reference_id', String, ForeignKey('references.id'))
 )
 
 paper_citations = Table(
     'paper_citations',
     Base.metadata,
     Column('paper_id', String, ForeignKey('papers.id')),
-    Column('citation', String)
+    Column('citation_id', String, ForeignKey('citations.id'))
 )
 
 # Database models
@@ -90,7 +98,23 @@ class DBReview(Base):
     citation_style = Column(String, default="ieee")
     word_count = Column(String)
 
-# Create all tables
-def init_db():
-    """Initialize the database by creating all tables."""
-    Base.metadata.create_all(bind=engine) 
+class Keyword(Base):
+    """SQLAlchemy model for keywords."""
+    __tablename__ = "keywords"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    value = Column(String, nullable=False, unique=True)
+
+class Reference(Base):
+    """SQLAlchemy model for references."""
+    __tablename__ = "references"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    value = Column(String, nullable=False, unique=True)
+
+class Citation(Base):
+    """SQLAlchemy model for citations."""
+    __tablename__ = "citations"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    value = Column(String, nullable=False, unique=True) 

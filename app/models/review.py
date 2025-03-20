@@ -1,42 +1,32 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey
+from sqlalchemy.orm import relationship
 from datetime import datetime
-from uuid import UUID, uuid4
+from pydantic import BaseModel
+
+from app.core.database import Base
 
 class Section(BaseModel):
     title: str
     content: str
-    subsections: List['Section'] = []
-    citations: List[str] = []
+    subsections: list = []
 
-class Review(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
-    title: str
-    abstract: str
-    introduction: Section
-    methodology: Section
-    results: Section
-    discussion: Section
-    conclusion: Section
-    references: List[str]
-    generated_date: datetime = Field(default_factory=datetime.now)
-    topic: str
-    paper_ids: List[str]
-    citation_style: str = "ieee"
-    word_count: int
-    
+class ReviewSchema(BaseModel):
+    id: int
+    paper_id: int
+    sections: list
+    generated_at: datetime
+
     class Config:
-        json_schema_extra = {
-            "example": {
-                "title": "Recent Advances in Deep Learning: A State-of-the-Art Review",
-                "abstract": "This review synthesizes recent developments in deep learning...",
-                "introduction": {
-                    "title": "Introduction",
-                    "content": "Deep learning has revolutionized artificial intelligence...",
-                    "citations": ["doe2024deep", "smith2023neural"]
-                },
-                "topic": "deep learning advances",
-                "citation_style": "ieee",
-                "word_count": 5000
-            }
-        } 
+        from_attributes = True
+
+class Review(Base):
+    __tablename__ = "reviews"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    paper_id = Column(Integer, ForeignKey("papers.id"))
+    sections = Column(JSON)  # Store as JSON array
+    generated_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    paper = relationship("Paper", back_populates="reviews") 

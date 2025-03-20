@@ -1,55 +1,108 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const CitationDisplay = () => {
-    const [paperIds, setPaperIds] = useState('');
-    const [style, setStyle] = useState('ieee');
+    const [papers, setPapers] = useState([]);
+    const [selectedPaperId, setSelectedPaperId] = useState('');
     const [citations, setCitations] = useState([]);
-    const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    const handleGetCitations = async () => {
-        if (!paperIds) {
-            setMessage('Please enter paper IDs.');
+    useEffect(() => {
+        // Fetch available papers when component mounts
+        const fetchPapers = async () => {
+            try {
+                const response = await axios.get('http://localhost:8000/api/papers');
+                setPapers(response.data.papers || []);
+            } catch (err) {
+                console.error('Error fetching papers:', err);
+            }
+        };
+
+        fetchPapers();
+    }, []);
+
+    const fetchCitations = async () => {
+        if (!selectedPaperId) {
+            setError('Please select a paper first');
             return;
         }
 
+        setLoading(true);
+        setError(null);
+        setCitations([]);
+
         try {
-            const response = await axios.get(`/api/citations/${style}`, {
-                params: { paper_ids: paperIds.split(',') }
-            });
-            setCitations(response.data.citations);
-            setMessage('Citations retrieved successfully.');
-        } catch (error) {
-            setMessage('Error retrieving citations.');
+            const response = await axios.get(`http://localhost:8000/api/citations/${selectedPaperId}`);
+            setCitations(response.data.citations || []);
+        } catch (err) {
+            console.error('Citation fetch error:', err);
+            setError(err.response?.data?.detail || 'Failed to fetch citations');
+        } finally {
+            setLoading(false);
         }
+    };
+
+    const handlePaperChange = (e) => {
+        setSelectedPaperId(e.target.value);
+        setError(null);
+        setCitations([]);
     };
 
     return (
         <div>
-            <h2>Get Citations</h2>
-            <input
-                type="text"
-                placeholder="Enter paper IDs (comma-separated)"
-                value={paperIds}
-                onChange={(e) => setPaperIds(e.target.value)}
-            />
-            <select value={style} onChange={(e) => setStyle(e.target.value)}>
-                <option value="ieee">IEEE</option>
-                <option value="apa">APA</option>
-                <option value="mla">MLA</option>
-            </select>
-            <button onClick={handleGetCitations}>Get Citations</button>
-            {message && <p>{message}</p>}
-            {citations.length > 0 && (
-                <div>
+            <div className="paper-selector">
+                <label htmlFor="citation-paper-select">Select a paper:</label>
+                <select 
+                    id="citation-paper-select"
+                    value={selectedPaperId} 
+                    onChange={handlePaperChange}
+                    disabled={loading || papers.length === 0}
+                >
+                    <option value="">-- Select a paper --</option>
+                    {papers.map((paper) => (
+                        <option key={paper.id} value={paper.id}>
+                            {paper.title || `Paper ${paper.id}`}
+                        </option>
+                    ))}
+                </select>
+                {papers.length === 0 && <p className="no-papers">No papers available. Please upload papers first.</p>}
+            </div>
+
+            <div className="citation-controls">
+                <button 
+                    onClick={fetchCitations} 
+                    disabled={loading || !selectedPaperId}
+                    className="fetch-button"
+                >
+                    {loading ? 'Loading...' : 'Fetch Citations'}
+                </button>
+            </div>
+
+            {error && <div className="error">{error}</div>}
+            {loading && <div className="loading">Fetching citations. This may take a moment...</div>}
+            
+            {citations.length > 0 ? (
+                <div className="citation-list">
                     <h3>Citations</h3>
                     <ul>
                         {citations.map((citation, index) => (
-                            <li key={index}>{citation}</li>
+                            <li key={index} className="citation-item">
+                                {typeof citation === 'object' ? (
+                                    <div>
+                                        <p className="citation-text">{citation.text || citation.citation}</p>
+                                        {citation.source && <p className="citation-source">Source: {citation.source}</p>}
+                                    </div>
+                                ) : (
+                                    <p>{citation}</p>
+                                )}
+                            </li>
                         ))}
                     </ul>
                 </div>
-            )}
+            ) : selectedPaperId && !loading && !error ? (
+                <div className="no-citations">No citations found for this paper</div>
+            ) : null}
         </div>
     );
 };

@@ -1,20 +1,30 @@
 import React from 'react';
-import './css';
+import './App.css';
 import Upload from './components/Upload';
-import ReviewGeneration from './components/ReviewGeneration';
+import ReviewGenerator from './components/ReviewGenerator';
 import CitationDisplay from './components/CitationDisplay';
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <h1>AI Academic Writing Agent</h1>
-      </header>
-      <main>
-        <Upload />
-        <ReviewGeneration />
-        <CitationDisplay />
-      </main>
+      <div className="container">
+        <h1>Research Paper Assistant</h1>
+        
+        <section className="upload-container">
+          <h2>Upload Papers</h2>
+          <Upload />
+        </section>
+
+        <section className="review-section">
+          <h2>Generate Review</h2>
+          <ReviewGenerator />
+        </section>
+
+        <section className="citation-section">
+          <h2>Citation Management</h2>
+          <CitationDisplay />
+        </section>
+      </div>
     </div>
   );
 }
